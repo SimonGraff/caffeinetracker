@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0c0f14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Koffein">
+<meta name="description" content="Koffein-Entwöhnungstracker — Schlafoptimiert">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>KOFFEIN — Entwöhnung</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0c0f14;--card:#12161e;--border:#1a1f2a;--text:#d0d6de;
+  --dim:#5a6270;--muted:#3a4250;--accent:#8090a0;
+  --ok:#2d6b45;--ok-light:#6bc98a;--warn:#8b7a3a;--warn-light:#d4a843;
+  --danger:#8b3a3a;--danger-light:#e05555;--late:#8b5a3a;
+  --font:'JetBrains Mono','SF Mono','Fira Code',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font-smoothing:antialiased}
+#app{max-width:480px;margin:0 auto;padding:16px;min-height:100dvh;position:relative}
+
+/* Toast */
+.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:8px;border:1px solid;font-size:13px;font-weight:600;z-index:100;max-width:340px;text-align:center;animation:fadeIn .2s;font-family:var(--font)}
+.toast-ok{background:#1a3a2a;border-color:var(--ok)}.toast-warn{background:#3a3020;border-color:var(--warn)}
+.toast-danger{background:#3a1a1a;border-color:var(--danger)}.toast-info{background:#1a2a3a;border-color:#3a5a8b}
+@keyframes fadeIn{from{opacity:0;transform:translateX(-50%) translateY(-8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+/* Header */
+.header{margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:16px}
+.header-top{display:flex;align-items:baseline;gap:10px}
+.title{font-size:28px;font-weight:800;color:#e8ecf0;letter-spacing:3px}
+.subtitle{font-size:10px;color:var(--dim);letter-spacing:4px;text-transform:uppercase}
+.clock-row{display:flex;align-items:center;gap:12px;margin-top:8px}
+.clock{font-size:18px;color:var(--accent);font-weight:300}
+.badge{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;letter-spacing:1px}
+.badge-ok{background:var(--ok)}.badge-warn{background:var(--warn)}.badge-danger{background:var(--danger)}
+
+/* Gauges */
+.gauge-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+.gauge-card{background:var(--card);border-radius:12px;padding:16px;border:1px solid var(--border)}
+.gauge-label{font-size:10px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px}
+.gauge-value{font-size:36px;font-weight:800;line-height:1.1}
+.gauge-value-sm{font-size:28px}
+.gauge-unit{font-size:11px;color:var(--dim);margin-top:2px}
+.gauge-bar{height:4px;background:var(--border);border-radius:2px;margin-top:10px;overflow:hidden}
+.gauge-bar-fill{height:100%;border-radius:2px;transition:width .4s}
+.gauge-hint{font-size:10px;color:var(--muted);margin-top:6px}
+
+/* Drink Grid */
+.section{margin-bottom:20px}
+.section-label{font-size:10px;color:var(--muted);letter-spacing:3px;margin-bottom:10px;text-transform:uppercase}
+.drink-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.drink-btn{display:flex;flex-direction:column;align-items:center;padding:14px 8px;background:var(--card);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all .15s;color:var(--text);font-family:var(--font);-webkit-tap-highlight-color:transparent}
+.drink-btn:active{transform:scale(.96)}
+.drink-btn.blocked{opacity:.35;border-color:#2a1a1a}
+.drink-emoji{font-size:24px;margin-bottom:4px}
+.drink-name{font-size:11px;font-weight:600;text-align:center}
+.drink-mg{font-size:10px;color:var(--dim);margin-top:2px}
+.drink-cutoff{font-size:9px;color:var(--muted);margin-top:2px}
+.drink-cutoff.red{color:var(--danger)}
+
+/* Tabs */
+.tabs{display:flex;gap:4px;margin-bottom:16px;background:var(--card);border-radius:8px;padding:3px}
+.tab{flex:1;padding:8px 0;background:transparent;border:none;color:var(--dim);font-size:12px;font-weight:600;cursor:pointer;border-radius:6px;font-family:var(--font);transition:all .15s;-webkit-tap-highlight-color:transparent}
+.tab.active{background:#1a2030;color:var(--text)}
+
+/* Timeline */
+.empty{text-align:center;color:var(--muted);font-size:13px;padding:30px}
+.timeline{display:flex;flex-direction:column;gap:6px}
+.tl-item{border-left:3px solid var(--ok);padding:6px 0 6px 12px}
+.tl-item.late{border-left-color:var(--late)}
+.tl-row{display:flex;align-items:center;gap:8px}
+.tl-time{font-size:12px;color:var(--dim);min-width:42px;cursor:pointer;padding:2px 4px;border-radius:4px;transition:background .15s;-webkit-tap-highlight-color:transparent}
+.tl-time:hover{background:var(--border)}
+.tl-drink{font-size:12px;flex:1}
+.tl-mg{font-size:12px;font-weight:700;color:var(--accent)}
+.tl-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 6px;font-family:var(--font);-webkit-tap-highlight-color:transparent}
+.tl-late-tag{font-size:10px;color:var(--late);margin-top:2px}
+
+/* Time Edit Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;animation:fadeIn .15s}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;width:280px}
+.modal h3{font-size:14px;font-weight:600;margin-bottom:16px;color:#e8ecf0}
+.modal-time-input{display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:20px}
+.modal-time-input input{width:70px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font);font-size:18px;text-align:center;font-weight:600}
+.modal-time-input input:focus{outline:none;border-color:var(--ok)}
+.modal-time-input span{font-size:24px;color:var(--dim);font-weight:800}
+.modal-btns{display:flex;gap:8px}
+.modal-btn{flex:1;padding:10px;border:none;border-radius:8px;font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.modal-btn.cancel{background:var(--bg);color:var(--dim);border:1px solid var(--border)}
+.modal-btn.save{background:var(--ok);color:#fff}
+
+/* History */
+.hist-day{padding:12px 0;border-bottom:1px solid var(--border)}
+.hist-header{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
+.hist-date{font-size:13px;font-weight:600;color:var(--accent)}
+.hist-total{font-size:13px;font-weight:700}
+.hist-late{font-size:10px;color:var(--late)}
+.hist-drinks{display:flex;flex-wrap:wrap;gap:6px}
+.hist-chip{font-size:11px;background:var(--card);padding:3px 8px;border-radius:4px;color:var(--dim)}
+
+/* Stats */
+.stats-avg{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px}
+.stats-avg-label{font-size:12px;color:var(--dim)}
+.stats-avg-value{font-size:28px;font-weight:800}
+.bar-chart{display:flex;gap:6px;height:120px;align-items:flex-end;margin-bottom:8px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;height:100%}
+.bar-val{font-size:9px;color:var(--dim);margin-bottom:4px;height:14px}
+.bar-track{flex:1;width:100%;background:var(--card);border-radius:4px;position:relative;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden}
+.bar-fill{width:100%;border-radius:0 0 4px 4px;transition:height .3s}
+.bar-late{position:absolute;left:0;right:0;border-radius:4px 4px 0 0}
+.bar-label{font-size:10px;color:var(--muted);margin-top:4px}
+.legend{display:flex;gap:16px;justify-content:center;margin-bottom:16px}
+.legend-item{font-size:10px;color:var(--dim);display:flex;align-items:center;gap:4px}
+.legend-dot{width:8px;height:8px;border-radius:2px;display:inline-block}
+
+/* Info box */
+.info-box{background:var(--card);border-radius:10px;padding:16px;border:1px solid var(--border)}
+.info-title{font-size:11px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
+.info-row{font-size:12px;color:var(--accent);margin-bottom:6px;line-height:1.5}
+
+/* Footer */
+.footer{text-align:center;padding:20px 0 40px}
+.reset-btn{background:none;border:1px solid #2a1a1a;color:#5a3a3a;padding:8px 16px;border-radius:6px;font-size:11px;cursor:pointer;font-family:var(--font);-webkit-tap-highlight-color:transparent}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ── Config ──
+const DRINKS = [
+  { id:"kaffee", label:"Kaffee · Becher", emoji:"☕", mg:95, ml:250, cutoffHour:12 },
+  { id:"clubmate", label:"Club-Mate · Flasche", emoji:"🧉", mg:100, ml:500, cutoffHour:12 },
+  { id:"matetee", label:"Mate · Kalebasse", emoji:"🍵", mg:78, ml:300, cutoffHour:12 },
+  { id:"gruentee", label:"Grüner Tee · Tasse", emoji:"🍃", mg:35, ml:200, cutoffHour:14 },
+];
+const SAFE_DAILY_MG = 400;
+const HARD_CUTOFF_HOUR = 14;
+const CAFFEINE_HALF_LIFE_H = 5;
+const SLEEP_HOUR = 21;
+const SLEEP_TARGET_MG = 50;
+const STORAGE_KEY = "koffein-log";
+
+// ── State ──
+let log = {};
+let currentView = "today";
+let toastTimeout = null;
+let editingEntry = null; // {dayKey, entryId}
+
+// ── Helpers ──
+const $ = s => document.querySelector(s);
+const todayKey = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+const getHour = iso => new Date(iso).getHours();
+const fmtTime = iso => new Date(iso).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+const fmtDate = iso => new Date(iso).toLocaleDateString("de-DE",{weekday:"short",day:"numeric",month:"short"});
+
+function load(){ try{ const d=localStorage.getItem(STORAGE_KEY); if(d) log=JSON.parse(d); }catch{} }
+function save(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(log)); }catch{} }
+
+function estimateBlood(entries, atTime=null){
+  const t = atTime ? new Date(atTime).getTime() : Date.now();
+  let total=0;
+  entries.forEach(e=>{
+    const h=(t - new Date(e.time).getTime())/3600000;
+    if(h>=0 && h<24) total += e.mg * Math.pow(0.5, h/CAFFEINE_HALF_LIFE_H);
+  });
+  return Math.round(total);
+}
+
+function bedtimeEstimate(entries){
+  const d=new Date(), bt=new Date(d.getFullYear(),d.getMonth(),d.getDate(),SLEEP_HOUR,0,0);
+  if(bt.getTime()<Date.now()) bt.setDate(bt.getDate()+1);
+  return estimateBlood(entries, bt.toISOString());
+}
+
+function allEntries(){ return Object.values(log).flat(); }
+
+function showToast(msg, type="info"){
+  const old=$(".toast"); if(old) old.remove();
+  if(toastTimeout) clearTimeout(toastTimeout);
+  const el=document.createElement("div");
+  el.className=`toast toast-${type}`;
+  el.textContent=msg;
+  document.body.appendChild(el);
+  toastTimeout=setTimeout(()=>el.remove(), 3000);
+}
+
+// ── Actions ──
+function addDrink(drink){
+  const key=todayKey(), hour=new Date().getHours();
+  const entry={id:Date.now(), drinkId:drink.id, mg:drink.mg, time:new Date().toISOString()};
+  if(!log[key]) log[key]=[];
+  log[key].push(entry);
+
+  const totalToday = log[key].reduce((s,e)=>s+e.mg, 0);
+  const allE = allEntries();
+  const btMg = bedtimeEstimate(allE);
+
+  let warning=null, warnType="warn";
+  if(hour>=HARD_CUTOFF_HOUR){
+    warning=`🛑 Nach ${HARD_CUTOFF_HOUR} Uhr — absoluter Stopp!`; warnType="danger";
+  } else if(hour>=drink.cutoffHour){
+    if(drink.id==="gruentee"){ warning=`⏰ Grüner Tee OK bis ${HARD_CUTOFF_HOUR} Uhr`; warnType="warn"; }
+    else { warning=`⚠️ ${drink.label} nur bis ${drink.cutoffHour} Uhr — Schlaf!`; warnType="danger"; }
+  }
+  if(totalToday>SAFE_DAILY_MG){ warning=`🚨 ${totalToday}mg — über ${SAFE_DAILY_MG}mg Tageslimit!`; warnType="danger"; }
+  else if(!warning && btMg>SLEEP_TARGET_MG){ warning=`😴 ~${btMg}mg um ${SLEEP_HOUR} Uhr — Schlaf gefährdet`; warnType="warn"; }
+
+  save(); render();
+  showToast(warning || `+${drink.mg}mg ${drink.label}`, warning ? warnType : "ok");
+}
+
+function removeEntry(dayKey, entryId){
+  if(!log[dayKey]) return;
+  log[dayKey] = log[dayKey].filter(e=>e.id!==entryId);
+  if(log[dayKey].length===0) delete log[dayKey];
+  save(); render();
+  showToast("Eintrag gelöscht","info");
+}
+
+function openTimeEdit(dayKey, entryId){
+  editingEntry = {dayKey, entryId};
+  render();
+}
+
+function saveTimeEdit(newHour, newMin){
+  if(!editingEntry) return;
+  const {dayKey, entryId} = editingEntry;
+  if(!log[dayKey]) return;
+  const entry = log[dayKey].find(e=>e.id===entryId);
+  if(!entry) return;
+  const d = new Date(entry.time);
+  d.setHours(parseInt(newHour)||0, parseInt(newMin)||0);
+  entry.time = d.toISOString();
+  editingEntry=null;
+  save(); render();
+  showToast("Uhrzeit korrigiert","info");
+}
+
+function closeModal(){ editingEntry=null; render(); }
+
+function resetAll(){
+  if(!confirm("Alle Daten löschen?")) return;
+  log={}; save(); render();
+  showToast("Alles zurückgesetzt","info");
+}
+
+// ── Render ──
+function render(){
+  const now=new Date();
+  const currentHour=now.getHours();
+  const tk=todayKey();
+  const todayEntries=log[tk]||[];
+  const todayTotal=todayEntries.reduce((s,e)=>s+e.mg,0);
+  const allE=allEntries();
+  const bloodLevel=estimateBlood(allE);
+  const btLevel=bedtimeEstimate(allE);
+  const isAfterHard=currentHour>=HARD_CUTOFF_HOUR;
+  const isAfterBase=currentHour>=12;
+  let hoursToSleep=SLEEP_HOUR-currentHour; if(hoursToSleep<=0) hoursToSleep+=24;
+
+  // Week
+  const last7=[];
+  for(let i=6;i>=0;i--){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    const entries=log[k]||[];
+    const total=entries.reduce((s,e)=>s+e.mg,0);
+    const afterCutoff=entries.filter(e=>{const dr=DRINKS.find(dd=>dd.id===e.drinkId);return getHour(e.time)>=(dr?.cutoffHour||12);}).reduce((s,e)=>s+e.mg,0);
+    last7.push({key:k,date:new Date(d),total,afterCutoff,count:entries.length});
+  }
+  const avgWeek=Math.round(last7.reduce((s,d)=>s+d.total,0)/7);
+  const maxDay=Math.max(...last7.map(d=>d.total),1);
+  const historyKeys=Object.keys(log).sort().reverse();
+
+  let badgeClass="badge-ok", badgeText="✅ OK";
+  if(isAfterHard){badgeClass="badge-danger";badgeText="🛑 STOPP";}
+  else if(isAfterBase){badgeClass="badge-warn";badgeText="🍃 NUR GRÜNTEE";}
+
+  let html = `
+    <header class="header">
+      <div class="header-top"><h1 class="title">KOFFEIN</h1><span class="subtitle">ENTWÖHNUNG</span></div>
+      <div class="clock-row">
+        <span class="clock">${now.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}</span>
+        <span class="badge ${badgeClass}">${badgeText}</span>
+      </div>
+    </header>
+
+    <div class="gauge-row">
+      <div class="gauge-card">
+        <div class="gauge-label">Heute</div>
+        <div class="gauge-value" style="color:${todayTotal>SAFE_DAILY_MG?'var(--danger-light)':todayTotal>300?'var(--warn-light)':'var(--ok-light)'}">${todayTotal}</div>
+        <div class="gauge-unit">/ ${SAFE_DAILY_MG}mg</div>
+        <div class="gauge-bar"><div class="gauge-bar-fill" style="width:${Math.min(100,(todayTotal/SAFE_DAILY_MG)*100)}%;background:${todayTotal>SAFE_DAILY_MG?'var(--danger-light)':todayTotal>300?'var(--warn-light)':'var(--ok-light)'}"></div></div>
+      </div>
+      <div class="gauge-card">
+        <div class="gauge-label">Im Blut jetzt</div>
+        <div class="gauge-value gauge-value-sm" style="color:${bloodLevel>200?'var(--warn-light)':'var(--ok-light)'}">${bloodLevel}<span style="font-size:14px;color:var(--dim)">mg</span></div>
+        <div class="gauge-label" style="margin-top:10px">Um ${SLEEP_HOUR} Uhr</div>
+        <div class="gauge-value gauge-value-sm" style="color:${btLevel>SLEEP_TARGET_MG?'var(--danger-light)':'var(--ok-light)'}">${btLevel}<span style="font-size:14px;color:var(--dim)">mg</span></div>
+        <div class="gauge-unit">${btLevel<=SLEEP_TARGET_MG?'✅ schlafkompatibel':'⚠️ Schlaf gefährdet'}</div>
+        <div class="gauge-hint">⏱ ${hoursToSleep}h bis Schlafenszeit</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">GETRÄNK LOGGEN</div>
+      <div class="drink-grid">
+        ${DRINKS.map(d=>{
+          const pastCutoff=currentHour>=d.cutoffHour;
+          const pastHard=currentHour>=HARD_CUTOFF_HOUR;
+          const blocked=pastHard||(pastCutoff&&d.id!=="gruentee");
+          return `<button class="drink-btn${blocked?' blocked':''}" onclick="addDrink(DRINKS.find(x=>x.id==='${d.id}'))">
+            <span class="drink-emoji">${d.emoji}</span>
+            <span class="drink-name">${d.label}</span>
+            <span class="drink-mg">${d.mg}mg</span>
+            <span class="drink-cutoff${blocked?' red':''}">bis ${d.cutoffHour} Uhr</span>
+          </button>`;
+        }).join("")}
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab${currentView==="today"?" active":""}" onclick="currentView='today';render()">Heute</button>
+      <button class="tab${currentView==="history"?" active":""}" onclick="currentView='history';render()">Verlauf</button>
+      <button class="tab${currentView==="stats"?" active":""}" onclick="currentView='stats';render()">Woche</button>
+    </div>`;
+
+  // ── Today ──
+  if(currentView==="today"){
+    if(todayEntries.length===0){
+      html+=`<div class="section"><div class="empty">Noch kein Koffein heute — stark! 💪</div></div>`;
+    } else {
+      html+=`<div class="section"><div class="timeline">`;
+      [...todayEntries].reverse().forEach(e=>{
+        const drink=DRINKS.find(d=>d.id===e.drinkId);
+        const h=getHour(e.time);
+        const isLate=h>=(drink?.cutoffHour||12);
+        html+=`<div class="tl-item${isLate?' late':''}">
+          <div class="tl-row">
+            <span class="tl-time" onclick="openTimeEdit('${tk}',${e.id})" title="Uhrzeit korrigieren">${fmtTime(e.time)}</span>
+            <span class="tl-drink">${drink?.emoji||""} ${drink?.label||""}</span>
+            <span class="tl-mg">${e.mg}mg</span>
+            <button class="tl-del" onclick="removeEntry('${tk}',${e.id})">✕</button>
+          </div>
+          ${isLate?`<div class="tl-late-tag">nach ${drink?.cutoffHour||12} Uhr</div>`:""}
+        </div>`;
+      });
+      html+=`</div></div>`;
+    }
+  }
+
+  // ── History ──
+  if(currentView==="history"){
+    html+=`<div class="section">`;
+    if(historyKeys.length===0){ html+=`<div class="empty">Keine Einträge</div>`; }
+    else {
+      historyKeys.slice(0,14).forEach(dk=>{
+        const entries=log[dk];
+        const dayTotal=entries.reduce((s,e)=>s+e.mg,0);
+        const lateTotal=entries.filter(e=>{const dr=DRINKS.find(d=>d.id===e.drinkId);return getHour(e.time)>=(dr?.cutoffHour||12);}).reduce((s,e)=>s+e.mg,0);
+        html+=`<div class="hist-day">
+          <div class="hist-header">
+            <span class="hist-date">${fmtDate(entries[0].time)}</span>
+            <span class="hist-total" style="color:${dayTotal>SAFE_DAILY_MG?'var(--danger-light)':'var(--accent)'}">${dayTotal}mg</span>
+            ${lateTotal>0?`<span class="hist-late">(${lateTotal}mg spät)</span>`:""}
+          </div>
+          <div class="hist-drinks">
+            ${entries.map(e=>{const dr=DRINKS.find(d=>d.id===e.drinkId);return `<span class="hist-chip">${dr?.emoji||""} ${fmtTime(e.time)}</span>`;}).join("")}
+          </div>
+        </div>`;
+      });
+    }
+    html+=`</div>`;
+  }
+
+  // ── Stats ──
+  if(currentView==="stats"){
+    const avgColor=avgWeek>SAFE_DAILY_MG?'var(--danger-light)':avgWeek>300?'var(--warn-light)':'var(--ok-light)';
+    html+=`<div class="section">
+      <div class="stats-avg">
+        <span class="stats-avg-label">Ø 7 Tage</span>
+        <span class="stats-avg-value" style="color:${avgColor}">${avgWeek}mg</span>
+      </div>
+      <div class="bar-chart">
+        ${last7.map(d=>{
+          const mainH=((Math.max(0,d.total-d.afterCutoff))/maxDay)*100;
+          const lateH=(d.afterCutoff/maxDay)*100;
+          const lateBot=((d.total-d.afterCutoff)/maxDay)*100;
+          return `<div class="bar-col">
+            <div class="bar-val">${d.total>0?d.total:""}</div>
+            <div class="bar-track">
+              ${d.afterCutoff>0?`<div class="bar-late" style="height:${lateH}%;bottom:${lateBot}%;background:var(--late)"></div>`:""}
+              <div class="bar-fill" style="height:${mainH}%;background:${d.total>SAFE_DAILY_MG?'var(--danger-light)':'var(--ok)'}"></div>
+            </div>
+            <div class="bar-label">${d.date.toLocaleDateString("de-DE",{weekday:"short"}).slice(0,2)}</div>
+          </div>`;
+        }).join("")}
+      </div>
+      <div class="legend">
+        <span class="legend-item"><span class="legend-dot" style="background:var(--ok)"></span> vor Cutoff</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--late)"></span> nach Cutoff</span>
+      </div>
+      <div class="info-box">
+        <div class="info-title">Deine Regeln</div>
+        <div class="info-row">→ Max. ${SAFE_DAILY_MG}mg / Tag (EFSA)</div>
+        <div class="info-row">→ Kaffee, Club-Mate, Mate: bis 12 Uhr</div>
+        <div class="info-row">→ Grüner Tee (35mg): bis 14 Uhr</div>
+        <div class="info-row">→ Ab 14 Uhr: komplett koffeinfrei</div>
+        <div class="info-row">→ Ziel: &lt;${SLEEP_TARGET_MG}mg im Blut um ${SLEEP_HOUR} Uhr</div>
+        <div class="info-row">→ Schlafenszeit: ${SLEEP_HOUR}–22 Uhr</div>
+        <div class="info-row">→ Halbwertszeit ~5h</div>
+      </div>
+    </div>`;
+  }
+
+  html+=`<div class="footer"><button class="reset-btn" onclick="resetAll()">Daten zurücksetzen</button></div>`;
+
+  // ── Time Edit Modal ──
+  if(editingEntry){
+    const {dayKey,entryId}=editingEntry;
+    const entry=(log[dayKey]||[]).find(e=>e.id===entryId);
+    if(entry){
+      const d=new Date(entry.time);
+      const hh=String(d.getHours()).padStart(2,"0");
+      const mm=String(d.getMinutes()).padStart(2,"0");
+      const drink=DRINKS.find(dr=>dr.id===entry.drinkId);
+      html+=`<div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+        <div class="modal">
+          <h3>${drink?.emoji||""} Uhrzeit korrigieren</h3>
+          <div class="modal-time-input">
+            <input type="number" id="edit-hh" min="0" max="23" value="${hh}" inputmode="numeric">
+            <span>:</span>
+            <input type="number" id="edit-mm" min="0" max="59" value="${mm}" inputmode="numeric">
+          </div>
+          <div class="modal-btns">
+            <button class="modal-btn cancel" onclick="closeModal()">Abbrechen</button>
+            <button class="modal-btn save" onclick="saveTimeEdit($('#edit-hh').value,$('#edit-mm').value)">Speichern</button>
+          </div>
+        </div>
+      </div>`;
+    }
+  }
+
+  $("#app").innerHTML=html;
+}
+
+// ── Init ──
+load();
+render();
+setInterval(render, 60000);
+
+// ── Service Worker ──
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.register("sw.js").catch(()=>{});
+}
+</script>
+</body>
+</html>
