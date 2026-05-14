@@ -1,7 +1,7 @@
 {
-  "name": "Koffein Entwöhnung",
-  "short_name": "Koffein",
-  "description": "Koffein-Entwöhnungstracker — schlafoptimiert",
+  "name": "Caffeine Companion",
+  "short_name": "Caffeine",
+  "description": "Schlafoptimierter Koffein-Tracker",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0c0f14",
