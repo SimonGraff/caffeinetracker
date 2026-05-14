@@ -1,4 +1,4 @@
-const CACHE_NAME = "koffein-v1";
+const CACHE_NAME = "koffein-v2";
 const ASSETS = [
   "./index.html",
   "./manifest.json",
@@ -23,7 +23,11 @@ self.addEventListener("activate", e => {
 });
 
 self.addEventListener("fetch", e => {
-  // Network first for navigation, cache first for assets
+  const url = new URL(e.request.url);
+
+  // Don't intercept external API calls (Oura etc.)
+  if (url.origin !== self.location.origin) return;
+
   if (e.request.mode === "navigate") {
     e.respondWith(
       fetch(e.request)
