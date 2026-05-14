@@ -22,7 +22,7 @@
   --font:'JetBrains Mono','SF Mono','Fira Code',monospace;
 }
 body{background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font-smoothing:antialiased}
-#app{max-width:480px;margin:0 auto;padding:16px 16px 100px;min-height:100dvh;position:relative}
+#app{max-width:480px;margin:0 auto;padding:calc(env(safe-area-inset-top,16px) + 8px) 16px 120px;min-height:100dvh;position:relative}
 .toast{position:fixed;top:env(safe-area-inset-top,16px);left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:8px;border:1px solid;font-size:12px;font-weight:600;z-index:999;max-width:340px;text-align:center;animation:slideD .25s;font-family:var(--font)}
 .toast-ok{background:#1a3a2a;border-color:var(--ok);color:var(--ok-light)}
 .toast-warn{background:#3a3020;border-color:var(--warn);color:var(--warn-light)}
@@ -48,7 +48,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font
 .sleep-box.ok{color:var(--ok-light);background:rgba(45,107,69,.15)}
 .sleep-box.warn{color:var(--warn-light);background:rgba(139,122,58,.15)}
 .sleep-box.danger{color:var(--danger-light);background:rgba(139,58,58,.15)}
-.fab{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ok);color:#fff;border:none;border-radius:50px;padding:14px 28px;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(45,107,69,.4);z-index:50;display:flex;align-items:center;gap:8px;letter-spacing:1px;transition:all .15s}
+.fab{position:fixed;bottom:calc(env(safe-area-inset-bottom,20px) + 28px);left:50%;transform:translateX(-50%);background:var(--ok);color:#fff;border:none;border-radius:50px;padding:14px 28px;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(45,107,69,.4);z-index:50;display:flex;align-items:center;gap:8px;letter-spacing:1px;transition:all .15s}
 .fab:active{transform:translateX(-50%) scale(.95)}
 .fab .plus{font-size:20px;font-weight:300}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;display:flex;flex-direction:column;justify-content:flex-end;animation:fadeIn .15s}
@@ -141,6 +141,20 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font
 .ftr{text-align:center;padding:20px 0}
 .ftr button{background:none;border:1px solid #2a1a1a;color:#5a3a3a;padding:6px 14px;border-radius:6px;font-size:10px;cursor:pointer;font-family:var(--font)}
 .g-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.sleep-card{background:var(--card);border-radius:12px;padding:14px;border:1px solid var(--border);margin-bottom:14px}
+.sleep-card .sc-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.sleep-card .sc-title{font-size:9px;color:var(--dim);letter-spacing:2px;text-transform:uppercase}
+.sleep-card .sc-score{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px}
+.sleep-card .sc-row{display:flex;gap:12px;flex-wrap:wrap}
+.sleep-card .sc-stat{flex:1;min-width:60px}
+.sleep-card .sc-label{font-size:9px;color:var(--muted);margin-bottom:2px}
+.sleep-card .sc-val{font-size:14px;font-weight:700}
+.sleep-card .sc-stages{display:flex;height:8px;border-radius:4px;overflow:hidden;margin-top:8px;gap:1px}
+.sleep-card .sc-stage{height:100%}
+.sleep-card .sc-legend{display:flex;gap:8px;margin-top:4px;flex-wrap:wrap}
+.sleep-card .sc-leg{font-size:8px;color:var(--dim);display:flex;align-items:center;gap:2px}
+.sleep-card .sc-ldot{width:6px;height:6px;border-radius:2px;display:inline-block}
+.sleep-card .sc-err{font-size:10px;color:var(--muted);text-align:center;padding:8px}
 </style>
 </head>
 <body>
@@ -175,6 +189,56 @@ function getCutoff(id){return DRINK_CUTOFFS[id]||12}
 const SAFE=400,HARD=14,HLH=5,SLP=21,SLP_TGT=50,WAKE=7,SK="caffeine-log";
 
 let log={},view="today",pickerStep=null,editingEntry=null,toastTO=null,calM=new Date().getMonth(),calY=new Date().getFullYear();
+
+// Oura
+const OURA_TOKEN="DM4E7QIVM7D5OVX7WNUMPIOIPXTUQ5KZ";
+let sleepData=null,sleepLoading=false,sleepError=null;
+
+async function fetchSleep(){
+  if(sleepLoading)return;
+  sleepLoading=true;sleepError=null;render();
+  try{
+    // Get yesterday and today for sleep range (last night's sleep)
+    const today=new Date(),yesterday=new Date(today);yesterday.setDate(yesterday.getDate()-1);
+    const startDate=yesterday.toISOString().split("T")[0];
+    const endDate=today.toISOString().split("T")[0];
+    const url=`https://api.ouraring.com/v2/usercollection/sleep?start_date=${startDate}&end_date=${endDate}`;
+    const res=await fetch(url,{headers:{"Authorization":`Bearer ${OURA_TOKEN}`}});
+    if(!res.ok)throw new Error(`API ${res.status}`);
+    const data=await res.json();
+    // Get the most recent sleep period (type "long_sleep")
+    const sessions=data.data||[];
+    const longSleep=sessions.filter(s=>s.type==="long_sleep").sort((a,b)=>b.bedtime_end?.localeCompare(a.bedtime_end))[0];
+    if(longSleep){
+      const bStart=new Date(longSleep.bedtime_start);
+      const bEnd=new Date(longSleep.bedtime_end);
+      const durMin=longSleep.time_in_bed?Math.round(longSleep.time_in_bed/60):Math.round((bEnd-bStart)/60000);
+      const durH=Math.floor(durMin/60);const durM=durMin%60;
+      // Sleep stages from contributors or readiness
+      const deep=longSleep.deep_sleep_duration?Math.round(longSleep.deep_sleep_duration/60):null;
+      const rem=longSleep.rem_sleep_duration?Math.round(longSleep.rem_sleep_duration/60):null;
+      const light=longSleep.light_sleep_duration?Math.round(longSleep.light_sleep_duration/60):null;
+      const awake=longSleep.awake_time?Math.round(longSleep.awake_time/60):null;
+      const totalSleep=longSleep.total_sleep_duration?Math.round(longSleep.total_sleep_duration/60):durMin;
+      const efficiency=longSleep.efficiency||null;
+      const score=longSleep.readiness?.score||null;
+      // Heart rate
+      const hrAvg=longSleep.average_heart_rate||null;
+      const hrv=longSleep.average_hrv||null;
+      sleepData={
+        bedStart:bStart,bedEnd:bEnd,durH,durM,durMin,totalSleep,
+        deep,rem,light,awake,efficiency,score,hrAvg,hrv,
+        raw:longSleep
+      };
+    } else {
+      sleepData=null;sleepError="Keine Schlafdaten gefunden";
+    }
+  }catch(err){
+    sleepError=err.message;sleepData=null;
+  }
+  sleepLoading=false;render();
+}
+
 
 const $=s=>document.querySelector(s);
 const dk=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
@@ -257,6 +321,47 @@ function render(){
     </div>`;
 
   if(view==="today"){
+    // Oura Sleep Card
+    if(sleepLoading){
+      h+=`<div class="sleep-card"><div class="sc-err">🔄 Schlafdaten laden…</div></div>`;
+    } else if(sleepData){
+      const sd=sleepData;
+      const fmtT=d=>d.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+      const scoreColor=sd.efficiency>=85?"var(--ok-light)":sd.efficiency>=70?"var(--warn-light)":"var(--danger-light)";
+      const totalH=Math.floor(sd.totalSleep/60),totalM=sd.totalSleep%60;
+      h+=`<div class="sleep-card"><div class="sc-hdr"><span class="sc-title">😴 Letzte Nacht</span>`;
+      if(sd.efficiency!=null)h+=`<span class="sc-score" style="color:${scoreColor};background:${sd.efficiency>=85?'rgba(45,107,69,.15)':sd.efficiency>=70?'rgba(139,122,58,.15)':'rgba(139,58,58,.15)'}">${sd.efficiency}% Effizienz</span>`;
+      h+=`</div><div class="sc-row">
+        <div class="sc-stat"><div class="sc-label">Schlaf</div><div class="sc-val" style="color:${totalH>=7?'var(--ok-light)':totalH>=6?'var(--warn-light)':'var(--danger-light)'}">${totalH}h ${totalM}m</div></div>
+        <div class="sc-stat"><div class="sc-label">Bett</div><div class="sc-val">${fmtT(sd.bedStart)}</div></div>
+        <div class="sc-stat"><div class="sc-label">Aufgestanden</div><div class="sc-val">${fmtT(sd.bedEnd)}</div></div>`;
+      if(sd.hrAvg!=null)h+=`<div class="sc-stat"><div class="sc-label">Ø HR</div><div class="sc-val">${sd.hrAvg}</div></div>`;
+      if(sd.hrv!=null)h+=`<div class="sc-stat"><div class="sc-label">Ø HRV</div><div class="sc-val">${Math.round(sd.hrv)}</div></div>`;
+      h+=`</div>`;
+      // Sleep stages bar
+      if(sd.deep!=null&&sd.rem!=null&&sd.light!=null){
+        const tot=sd.deep+sd.rem+sd.light+(sd.awake||0);
+        if(tot>0){
+          const pD=(sd.deep/tot*100).toFixed(0),pR=(sd.rem/tot*100).toFixed(0),pL=(sd.light/tot*100).toFixed(0),pA=((sd.awake||0)/tot*100).toFixed(0);
+          h+=`<div class="sc-stages">
+            <div class="sc-stage" style="width:${pD}%;background:#3a6baa"></div>
+            <div class="sc-stage" style="width:${pR}%;background:#7a5aaa"></div>
+            <div class="sc-stage" style="width:${pL}%;background:#5a8a6a"></div>
+            ${sd.awake?`<div class="sc-stage" style="width:${pA}%;background:#5a4a3a"></div>`:''}
+          </div>
+          <div class="sc-legend">
+            <span class="sc-leg"><span class="sc-ldot" style="background:#3a6baa"></span>Tief ${sd.deep}m</span>
+            <span class="sc-leg"><span class="sc-ldot" style="background:#7a5aaa"></span>REM ${sd.rem}m</span>
+            <span class="sc-leg"><span class="sc-ldot" style="background:#5a8a6a"></span>Leicht ${sd.light}m</span>
+            ${sd.awake?`<span class="sc-leg"><span class="sc-ldot" style="background:#5a4a3a"></span>Wach ${sd.awake}m</span>`:''}
+          </div>`;
+        }
+      }
+      h+=`</div>`;
+    } else if(sleepError){
+      h+=`<div class="sleep-card"><div class="sc-err">⚠️ ${sleepError}</div></div>`;
+    }
+
     if(!tE.length){h+=`<div class="empty">Noch kein Koffein heute 💪</div>`}
     else{h+=`<div class="tl">`;[...tE].reverse().forEach(e=>{
       const dr=ALL_DRINKS[e.drinkId],hr=gH(e.time),co=getCutoff(e.drinkId),late=hr>=co;
@@ -351,7 +456,9 @@ function render(){
   }
 }
 
-load();render();setInterval(render,6e4);
+load();render();fetchSleep();setInterval(render,6e4);
+// Refresh sleep data every 30 min
+setInterval(fetchSleep,18e5);
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
 </body>
